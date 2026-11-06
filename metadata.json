@@ -1,0 +1,6 @@
+{
+  "name": "Subway Sastra 3D",
+  "description": "Game endless runner 3D interaktif Subway Surfers dengan checkpoint kuis Bahasa Indonesia Kelas 9 tentang Pantun, Syair, dan Gurindam.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
