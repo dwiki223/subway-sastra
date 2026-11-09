@@ -250,6 +250,32 @@ class SoundEngine {
     osc.stop(now + 0.32);
   }
 
+  // 1500m Speed multiplier 2x sound effect
+  public playSpeedUp() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const freqs = [329.63, 440.00, 554.37, 659.25, 880.00, 1108.73]; // E4, A4, C#5, E5, A5, C#6
+    freqs.forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      osc.type = 'sawtooth';
+      const now = this.ctx!.currentTime + idx * 0.05;
+      osc.frequency.setValueAtTime(freq, now);
+
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.32);
+    });
+  }
+
   // Light upbeat background rhythm track generated procedurally
   public startBgm() {
     if (this.isMuted || this.isBgmPlaying) return;

@@ -11,6 +11,7 @@ import { CheckpointModal } from './components/CheckpointModal';
 import { GuideModal } from './components/GuideModal';
 import { GameOverModal } from './components/GameOverModal';
 import { SkinSelectorModal } from './components/SkinSelectorModal';
+import { QuestionBankModal } from './components/QuestionBankModal';
 import { QUESTION_BANK, OUTFIT_OPTIONS, shuffleQuestion } from './data/indonesianQuestions';
 import { GameState, PlayerStats, Question, AnswerHistory } from './types/game';
 import { sound } from './utils/audio';
@@ -59,6 +60,8 @@ export default function App() {
   // Modals
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [isSkinsOpen, setIsSkinsOpen] = useState<boolean>(false);
+  const [isQuestionBankOpen, setIsQuestionBankOpen] = useState<boolean>(false);
+  const [speedAlert, setSpeedAlert] = useState<{ stage: number; multiplier: number } | null>(null);
 
   // In-game stats
   const [stats, setStats] = useState<PlayerStats>({
@@ -73,6 +76,8 @@ export default function App() {
     correctAnswersCount: 0,
     totalQuestionsAnswered: 0,
     speed: 16,
+    speedMultiplier: 1,
+    speedStage: 1,
     multiplier: 1,
     hasShield: false,
     magnetTimeLeft: 0,
@@ -136,6 +141,16 @@ export default function App() {
           if (type === 'double') return { ...prev, doublePointsTimeLeft: 15, multiplier: 2 };
           return prev;
         });
+      },
+      onSpeedDoubled: (stage, multiplier) => {
+        sound.playSpeedUp();
+        setSpeedAlert({ stage, multiplier });
+        setStats((prev) => ({
+          ...prev,
+          speedMultiplier: multiplier,
+          speedStage: stage,
+        }));
+        setTimeout(() => setSpeedAlert(null), 3800);
       },
       onGameOver: () => {
         handleGameOver();
@@ -205,6 +220,8 @@ export default function App() {
       correctAnswersCount: 0,
       totalQuestionsAnswered: 0,
       speed: 16,
+      speedMultiplier: 1,
+      speedStage: 1,
       multiplier: 1,
       hasShield: false,
       magnetTimeLeft: 0,
@@ -441,14 +458,22 @@ export default function App() {
             </button>
           </div>
 
-          {/* Bottom Dock Menu (Materials & Skins) */}
+          {/* Bottom Dock Menu (Materials, Question Bank, & Skins) */}
           <div className="flex flex-wrap items-center justify-center gap-3 pb-3">
+            <button
+              onClick={() => setIsQuestionBankOpen(true)}
+              className="flex items-center gap-2 rounded-2xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-2.5 px-4 border border-emerald-400/40 shadow-lg shadow-emerald-600/30 transition cursor-pointer"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>Bank Soal & Kunci (50 Soal)</span>
+            </button>
+
             <button
               onClick={() => setIsGuideOpen(true)}
               className="flex items-center gap-2 rounded-2xl bg-slate-900/80 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm py-2.5 px-4 border border-slate-700/70 shadow-md transition cursor-pointer"
             >
               <BookOpen className="h-4 w-4 text-indigo-400" />
-              <span>Buku Materi Puisi Rakyat</span>
+              <span>Rangkuman Materi</span>
             </button>
 
             <button
@@ -468,12 +493,18 @@ export default function App() {
           stats={stats}
           isMuted={isMuted}
           isPaused={isPaused}
+          speedAlert={speedAlert}
           onToggleMute={handleToggleMute}
           onTogglePause={handleTogglePause}
           onOpenGuide={() => {
             setIsPaused(true);
             if (engineRef.current) engineRef.current.pause();
             setIsGuideOpen(true);
+          }}
+          onOpenQuestionBank={() => {
+            setIsPaused(true);
+            if (engineRef.current) engineRef.current.pause();
+            setIsQuestionBankOpen(true);
           }}
           onMoveLeft={() => engineRef.current?.moveLeft()}
           onMoveRight={() => engineRef.current?.moveRight()}
@@ -494,6 +525,12 @@ export default function App() {
                 className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 transition cursor-pointer"
               >
                 Lanjutkan
+              </button>
+              <button
+                onClick={() => setIsQuestionBankOpen(true)}
+                className="w-full rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-semibold py-2.5 border border-emerald-400/40 transition cursor-pointer text-xs"
+              >
+                Buka Bank Soal & Kunci Jawaban
               </button>
               <button
                 onClick={() => setIsGuideOpen(true)}
@@ -536,6 +573,7 @@ export default function App() {
           onRestart={handleStartGame}
           onOpenSkins={() => setIsSkinsOpen(true)}
           onOpenGuide={() => setIsGuideOpen(true)}
+          onOpenQuestionBank={() => setIsQuestionBankOpen(true)}
         />
       )}
 
@@ -559,6 +597,16 @@ export default function App() {
         onSelectSkin={handleSelectSkin}
         onUnlockSkin={handleUnlockSkin}
         onClose={() => setIsSkinsOpen(false)}
+      />
+      {/* Question Bank & Answer Key Modal */}
+      <QuestionBankModal
+        isOpen={isQuestionBankOpen}
+        onClose={() => {
+          setIsQuestionBankOpen(false);
+          if (gameState === 'playing' && isPaused) {
+            handleTogglePause();
+          }
+        }}
       />
     </main>
   );

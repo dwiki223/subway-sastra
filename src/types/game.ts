@@ -26,6 +26,8 @@ export interface PlayerStats {
   correctAnswersCount: number;
   totalQuestionsAnswered: number;
   speed: number;
+  speedMultiplier: number; // e.g. 1x, 2x, 4x, etc. based on 1500m intervals
+  speedStage: number; // stage 1 (0-1499m), stage 2 (1500-2999m), etc.
   multiplier: number;
   hasShield: boolean;
   magnetTimeLeft: number;

@@ -8,6 +8,7 @@ interface GameOverModalProps {
   onRestart: () => void;
   onOpenSkins: () => void;
   onOpenGuide: () => void;
+  onOpenQuestionBank?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -16,6 +17,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   onRestart,
   onOpenSkins,
   onOpenGuide,
+  onOpenQuestionBank,
 }) => {
   const [showReview, setShowReview] = useState<boolean>(false);
   const accuracy = stats.totalQuestionsAnswered > 0
@@ -79,15 +81,27 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
         </div>
 
-        {/* Checkpoint Statistics */}
-        <div className="rounded-2xl bg-slate-950/60 p-3.5 border border-slate-800 flex items-center justify-between text-xs sm:text-sm">
-          <div className="flex items-center gap-2">
-            <Compass className="h-4 w-4 text-indigo-400" />
-            <span className="text-slate-300">Pos Kuis Dilewati:</span>
+        {/* Checkpoint Statistics & Speed Milestone */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <div className="rounded-2xl bg-slate-950/60 p-3.5 border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Compass className="h-4 w-4 text-indigo-400" />
+              <span className="text-slate-300">Pos Kuis:</span>
+            </div>
+            <span className="font-bold text-white font-mono">
+              {stats.correctAnswersCount} / {stats.totalQuestionsAnswered} Pos Tuntas
+            </span>
           </div>
-          <span className="font-bold text-white font-mono">
-            {stats.correctAnswersCount} / {stats.totalQuestionsAnswered} Pos Tuntas
-          </span>
+
+          <div className="rounded-2xl bg-slate-950/60 p-3.5 border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 font-bold">⚡</span>
+              <span className="text-slate-300">Tingkat Kecepatan:</span>
+            </div>
+            <span className="font-bold text-amber-300 font-mono">
+              {stats.speedMultiplier}x (Tahap {stats.speedStage})
+            </span>
+          </div>
         </div>
 
         {/* Questions Review Accordion */}
@@ -99,7 +113,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             >
               <div className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-indigo-400" />
-                <span>Ulas Pembahasan Soal ({history.length} Soal)</span>
+                <span>Ulas Pembahasan Soal yang Dilewati ({history.length} Soal)</span>
               </div>
               {showReview ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </button>
@@ -140,13 +154,13 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
                     </div>
 
                     {!item.isCorrect && (
-                      <div className="text-[11px] text-emerald-300">
-                        Kunci: {item.question.options[item.question.correctAnswer]}
+                      <div className="text-[11px] text-emerald-300 font-semibold">
+                        Kunci Jawaban: {item.question.options[item.question.correctAnswer]}
                       </div>
                     )}
 
                     <div className="text-[10px] text-slate-400 bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-                      <strong className="text-slate-300">Penjelasan: </strong>
+                      <strong className="text-slate-300">Pembahasan: </strong>
                       {item.question.explanation}
                     </div>
                   </div>
@@ -166,9 +180,19 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             <span>Main Lagi</span>
           </button>
 
+          {onOpenQuestionBank && (
+            <button
+              onClick={onOpenQuestionBank}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold py-3.5 px-4 border border-emerald-400/40 shadow-md transition cursor-pointer text-xs"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>Semua Kunci Jawaban</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenSkins}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-semibold py-3.5 px-4 border border-slate-700 transition cursor-pointer"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-semibold py-3.5 px-4 border border-slate-700 transition cursor-pointer text-xs"
           >
             <Palette className="h-4 w-4 text-amber-400" />
             <span>Kostum</span>
@@ -176,7 +200,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
           <button
             onClick={onOpenGuide}
-            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-semibold py-3.5 px-4 border border-slate-700 transition cursor-pointer"
+            className="flex items-center justify-center gap-2 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-200 font-semibold py-3.5 px-4 border border-slate-700 transition cursor-pointer text-xs"
           >
             <BookOpen className="h-4 w-4 text-sky-400" />
             <span>Materi</span>

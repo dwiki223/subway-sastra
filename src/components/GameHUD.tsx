@@ -6,9 +6,11 @@ interface GameHUDProps {
   stats: PlayerStats;
   isMuted: boolean;
   isPaused: boolean;
+  speedAlert: { stage: number; multiplier: number } | null;
   onToggleMute: () => void;
   onTogglePause: () => void;
   onOpenGuide: () => void;
+  onOpenQuestionBank: () => void;
   onMoveLeft: () => void;
   onMoveRight: () => void;
   onJump: () => void;
@@ -19,9 +21,11 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   stats,
   isMuted,
   isPaused,
+  speedAlert,
   onToggleMute,
   onTogglePause,
   onOpenGuide,
+  onOpenQuestionBank,
   onMoveLeft,
   onMoveRight,
   onJump,
@@ -101,14 +105,23 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               ))}
             </div>
 
+            {/* Bank Soal & Kunci Jawaban Button */}
+            <button
+              onClick={onOpenQuestionBank}
+              title="Buka Bank Soal & Kunci Jawaban (50 Soal)"
+              className="flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 font-semibold text-xs border border-emerald-400/40 transition shadow-md cursor-pointer"
+            >
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Bank Soal & Kunci</span>
+            </button>
+
             {/* Guide Button */}
             <button
               onClick={onOpenGuide}
               title="Panduan Materi Pantun, Syair, Gurindam"
               className="flex h-10 items-center gap-1.5 rounded-xl bg-indigo-600/90 hover:bg-indigo-500 text-white px-3 font-semibold text-xs border border-indigo-400/30 transition shadow-md cursor-pointer"
             >
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Materi Puisi</span>
+              <span className="hidden sm:inline">Rangkuman</span>
             </button>
 
             {/* Sound Toggle */}
@@ -130,9 +143,17 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </button>
           </div>
 
-          {/* Distance Run Metric */}
-          <div className="pointer-events-auto rounded-xl bg-slate-900/80 px-3 py-1 border border-slate-800 text-xs font-mono text-slate-300 font-semibold shadow">
-            Jarak: <span className="text-white font-bold">{stats.distance}</span> m
+          {/* Distance Run Metric & Speed Multiplier */}
+          <div className="flex items-center gap-2">
+            {stats.speedMultiplier > 1 && (
+              <div className="pointer-events-auto flex items-center gap-1 rounded-xl bg-amber-500/20 border border-amber-400/50 px-2.5 py-1 text-xs font-black font-mono text-amber-300 shadow animate-pulse">
+                <Zap className="h-3.5 w-3.5 fill-amber-300" />
+                <span>KECEPATAN {stats.speedMultiplier}X</span>
+              </div>
+            )}
+            <div className="pointer-events-auto rounded-xl bg-slate-900/80 px-3 py-1 border border-slate-800 text-xs font-mono text-slate-300 font-semibold shadow">
+              Jarak: <span className="text-white font-bold">{stats.distance}</span> m
+            </div>
           </div>
 
           {/* Active Powerup Badges */}
@@ -155,6 +176,15 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Speed 2x Multiplier Alert Toast */}
+      {speedAlert && (
+        <div className="pointer-events-none self-center flex items-center gap-2.5 rounded-2xl bg-amber-500/95 border-2 border-amber-300 text-slate-950 px-5 py-3 shadow-2xl shadow-amber-500/50 animate-bounce font-black text-sm sm:text-base">
+          <Zap className="h-6 w-6 fill-slate-950 animate-spin" />
+          <span>KECEPATAN NAIK {speedAlert.multiplier}X LIPAT! (JARAK 1500M TERCAPAI)</span>
+          <Zap className="h-6 w-6 fill-slate-950 animate-spin" />
+        </div>
+      )}
 
       {/* Keyboard Hint Overlay (Desktop) / Mobile Virtual Touch D-Pad (Touchscreens) */}
       <div className="pointer-events-none flex flex-col items-center gap-3">

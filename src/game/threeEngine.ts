@@ -7,6 +7,7 @@ export interface GameEngineCallbacks {
   onHitObstacle: () => void;
   onDistanceUpdate: (meters: number) => void;
   onPowerupCollected: (type: 'magnet' | 'shield' | 'double') => void;
+  onSpeedDoubled?: (stage: number, multiplier: number) => void;
   onGameOver: () => void;
 }
 
@@ -112,8 +113,11 @@ export class SubwayEngine {
   private isJumping: boolean = false;
   private isSliding: boolean = false;
   private slideTimer: number = 0;
-  private speed: number = 17;
-  private targetSpeed: number = 17;
+  private speed: number = 16;
+  private targetSpeed: number = 16;
+  private baseSpeed: number = 16;
+  private speedMultiplier: number = 1;
+  private lastSpeedMilestone: number = 0;
   private distanceRun: number = 0;
   private checkpointInterval: number = 100;
   private nextCheckpointDistance: number = 100;
@@ -817,39 +821,44 @@ export class SubwayEngine {
 
   // --- OBSTACLES & POWERUPS SPAWN ---
   private populateSegment(zOffset: number) {
-    const numSubSections = 3;
-    const subLength = SEGMENT_LENGTH / numSubSections;
+    // Generous spacing: exactly ONE obstacle cluster per 50-meter segment (placed at -25m offset)
+    const zPos = zOffset - 25;
 
-    for (let s = 0; s < numSubSections; s++) {
-      const zPos = zOffset - s * subLength - 8;
-      // Safety zone around checkpoint gate
-      if (Math.abs(zPos - (-this.nextCheckpointDistance)) < 16) {
-        continue;
+    // Safety buffer: keep 25m around checkpoint gate completely clear of obstacles
+    if (Math.abs(zPos - (-this.nextCheckpointDistance)) < 25) {
+      // Near checkpoint gate, spawn celebratory coins in center lane
+      for (let c = 0; c < 4; c++) {
+        this.spawnCoin(1, zPos - 6 + c * 3.5);
       }
+      return;
+    }
 
-      const openLane = Math.floor(Math.random() * 3);
-      const r = Math.random();
+    // Determine obstacle configuration:
+    // In 65% of cases, only 1 lane is blocked (giving 2 open lanes to pass through comfortably!)
+    // In 35% of cases, 2 lanes are blocked (leaving 1 guaranteed open lane)
+    const blockCount = Math.random() < 0.65 ? 1 : 2;
+    const shuffledLanes = [0, 1, 2].sort(() => Math.random() - 0.5);
+    const blockedLanes = shuffledLanes.slice(0, blockCount);
+    const r = Math.random();
 
-      for (let lane = 0; lane < 3; lane++) {
-        if (lane === openLane) {
-          // Open lane: Spawn collectibles
-          if (Math.random() < 0.15) {
-            const type = Math.random() < 0.35 ? 'magnet' : (Math.random() < 0.7 ? 'shield' : 'double');
-            this.spawnPowerup(lane, zPos, type);
-          } else {
-            // Row of 3 coins
-            for (let c = 0; c < 3; c++) {
-              this.spawnCoin(lane, zPos + c * 2.2);
-            }
-          }
+    for (let lane = 0; lane < 3; lane++) {
+      if (blockedLanes.includes(lane)) {
+        if (r < 0.35) {
+          this.spawnTrain(lane, zPos);
+        } else if (r < 0.72) {
+          this.spawnLowBarrier(lane, zPos);
         } else {
-          // Blocked lane
-          if (r < 0.42) {
-            this.spawnTrain(lane, zPos);
-          } else if (r < 0.78) {
-            this.spawnLowBarrier(lane, zPos);
-          } else {
-            this.spawnHighBarrier(lane, zPos);
+          this.spawnHighBarrier(lane, zPos);
+        }
+      } else {
+        // Open lane: spawn collectible items
+        if (Math.random() < 0.2) {
+          const type = Math.random() < 0.35 ? 'magnet' : (Math.random() < 0.7 ? 'shield' : 'double');
+          this.spawnPowerup(lane, zPos, type);
+        } else {
+          // Trail of 3 nicely spaced coins
+          for (let c = 0; c < 3; c++) {
+            this.spawnCoin(lane, zPos - 6 + c * 3.0);
           }
         }
       }
@@ -1191,8 +1200,11 @@ export class SubwayEngine {
     this.checkpointInterval = checkpointInterval;
     this.nextCheckpointDistance = checkpointInterval;
     this.distanceRun = 0;
-    this.speed = 17;
-    this.targetSpeed = 17;
+    this.baseSpeed = 16;
+    this.speedMultiplier = 1;
+    this.lastSpeedMilestone = 0;
+    this.speed = 16;
+    this.targetSpeed = 16;
     this.currentLaneIndex = 1;
     this.targetX = 0;
     this.playerX = 0;
@@ -1235,7 +1247,7 @@ export class SubwayEngine {
       this.checkpointGateGroup.position.set(0, 0, -this.nextCheckpointDistance);
       this.checkpointGateActive = false;
       this.isPaused = false;
-      this.targetSpeed = Math.min(this.speed + 1.2, 28);
+      this.targetSpeed = Math.max(this.speed, this.baseSpeed * this.speedMultiplier) + 1.5;
     } else {
       this.isPaused = false;
       this.invincibleTimer = 1.5;
@@ -1307,8 +1319,20 @@ export class SubwayEngine {
   }
 
   private updateGame(delta: number) {
+    // Check 1500-meter speed doubling milestone (tiap 1500 meter kecepatan naik 2x lipat)
+    const currentMilestone = Math.floor(this.distanceRun / 1500);
+    if (currentMilestone > this.lastSpeedMilestone) {
+      this.lastSpeedMilestone = currentMilestone;
+      this.speedMultiplier = Math.pow(2, currentMilestone);
+      this.targetSpeed = this.baseSpeed * this.speedMultiplier;
+      this.invincibleTimer = 3.0; // Grace period during acceleration
+      if (this.callbacks.onSpeedDoubled) {
+        this.callbacks.onSpeedDoubled(currentMilestone + 1, this.speedMultiplier);
+      }
+    }
+
     // 1. Distance & Speed
-    this.speed = THREE.MathUtils.damp(this.speed, this.targetSpeed, 2, delta);
+    this.speed = THREE.MathUtils.damp(this.speed, this.targetSpeed, 2.5, delta);
     const forwardStep = this.speed * delta;
     this.distanceRun += forwardStep;
     this.callbacks.onDistanceUpdate(Math.floor(this.distanceRun));
