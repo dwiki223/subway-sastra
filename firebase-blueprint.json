@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Represents a high-score run on the global leaderboard.",
+      "type": "object",
+      "properties": {
+        "playerName": {
+          "type": "string",
+          "description": "The display name of the player or student.",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "score": {
+          "type": "number",
+          "description": "Final score earned in the run."
+        },
+        "distance": {
+          "type": "number",
+          "description": "Distance traveled in meters."
+        },
+        "coins": {
+          "type": "number",
+          "description": "Coins collected during the run."
+        },
+        "correctAnswers": {
+          "type": "number",
+          "description": "Total quiz questions answered correctly."
+        },
+        "checkpointsCleared": {
+          "type": "number",
+          "description": "Checkpoints passed."
+        },
+        "outfit": {
+          "type": "string",
+          "description": "The character outfit used."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the player."
+        }
+      },
+      "required": ["playerName", "score", "distance", "coins", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/leaderboard/{entryId}": {
+      "schema": "LeaderboardEntry",
+      "description": "Public global leaderboard rankings."
+    }
+  }
+}

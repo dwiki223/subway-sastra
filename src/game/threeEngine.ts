@@ -821,48 +821,62 @@ export class SubwayEngine {
 
   // --- OBSTACLES & POWERUPS SPAWN ---
   private populateSegment(zOffset: number) {
-    // Generous spacing: exactly ONE obstacle cluster per 50-meter segment (placed at -25m offset)
-    const zPos = zOffset - 25;
+    // Dynamic runner balance: TWO obstacle clusters per 50-meter segment (at -14m and -36m offsets)
+    // Distance between clusters is ~22m (and ~28m across segments), giving more obstacles while preserving fair reaction time.
+    const clusterOffsets = [-14, -36];
 
-    // Safety buffer: keep 25m around checkpoint gate completely clear of obstacles
-    if (Math.abs(zPos - (-this.nextCheckpointDistance)) < 25) {
-      // Near checkpoint gate, spawn celebratory coins in center lane
-      for (let c = 0; c < 4; c++) {
-        this.spawnCoin(1, zPos - 6 + c * 3.5);
-      }
-      return;
-    }
+    clusterOffsets.forEach((offset) => {
+      const zPos = zOffset + offset;
 
-    // Determine obstacle configuration:
-    // In 65% of cases, only 1 lane is blocked (giving 2 open lanes to pass through comfortably!)
-    // In 35% of cases, 2 lanes are blocked (leaving 1 guaranteed open lane)
-    const blockCount = Math.random() < 0.65 ? 1 : 2;
-    const shuffledLanes = [0, 1, 2].sort(() => Math.random() - 0.5);
-    const blockedLanes = shuffledLanes.slice(0, blockCount);
-    const r = Math.random();
-
-    for (let lane = 0; lane < 3; lane++) {
-      if (blockedLanes.includes(lane)) {
-        if (r < 0.35) {
-          this.spawnTrain(lane, zPos);
-        } else if (r < 0.72) {
-          this.spawnLowBarrier(lane, zPos);
-        } else {
-          this.spawnHighBarrier(lane, zPos);
+      // Safety buffer: keep 18m around the checkpoint gate completely clear of obstacles
+      if (Math.abs(zPos - (-this.nextCheckpointDistance)) < 18) {
+        // Near checkpoint gate, spawn celebratory coins in center lane
+        for (let c = 0; c < 4; c++) {
+          this.spawnCoin(1, zPos - 4 + c * 2.5);
         }
-      } else {
-        // Open lane: spawn collectible items
-        if (Math.random() < 0.2) {
-          const type = Math.random() < 0.35 ? 'magnet' : (Math.random() < 0.7 ? 'shield' : 'double');
-          this.spawnPowerup(lane, zPos, type);
+        return;
+      }
+
+      // Determine obstacle configuration:
+      // In 55% of cases, 1 lane is blocked (leaves 2 open lanes)
+      // In 45% of cases, 2 lanes are blocked (leaves 1 guaranteed open lane)
+      const blockCount = Math.random() < 0.55 ? 1 : 2;
+      const shuffledLanes = [0, 1, 2].sort(() => Math.random() - 0.5);
+      const blockedLanes = shuffledLanes.slice(0, blockCount);
+
+      for (let lane = 0; lane < 3; lane++) {
+        if (blockedLanes.includes(lane)) {
+          const r = Math.random();
+          if (r < 0.35) {
+            this.spawnTrain(lane, zPos);
+          } else if (r < 0.70) {
+            this.spawnLowBarrier(lane, zPos);
+            // Reward jumping over the hurdle with an elevated gold coin
+            if (Math.random() < 0.65) {
+              this.spawnCoin(lane, zPos, 1.85);
+            }
+          } else {
+            this.spawnHighBarrier(lane, zPos);
+            // Reward sliding underneath the bar with a low gold coin
+            if (Math.random() < 0.65) {
+              this.spawnCoin(lane, zPos, 0.45);
+            }
+          }
         } else {
-          // Trail of 3 nicely spaced coins
-          for (let c = 0; c < 3; c++) {
-            this.spawnCoin(lane, zPos - 6 + c * 3.0);
+          // Open lane: spawn collectible items
+          if (Math.random() < 0.18) {
+            const type = Math.random() < 0.35 ? 'magnet' : (Math.random() < 0.7 ? 'shield' : 'double');
+            this.spawnPowerup(lane, zPos, type);
+          } else {
+            // Trail of 2-3 coins in open lane
+            const coinCount = Math.random() < 0.5 ? 2 : 3;
+            for (let c = 0; c < coinCount; c++) {
+              this.spawnCoin(lane, zPos - 3 + c * 2.8);
+            }
           }
         }
       }
-    }
+    });
   }
 
   // Streamlined MRT Commuter Train with Illuminated Windows & Headlight Cones
@@ -1038,10 +1052,10 @@ export class SubwayEngine {
   }
 
   // Spinning Gold Coin with Halo
-  private spawnCoin(lane: number, z: number) {
+  private spawnCoin(lane: number, z: number, y: number = 0.75) {
     const group = new THREE.Group();
     const x = LANES[lane];
-    group.position.set(x, 0.75, z);
+    group.position.set(x, y, z);
 
     // Main Coin Cylinder
     const coin = new THREE.Mesh(this.coinGeometry, this.coinMaterial);
@@ -1055,7 +1069,7 @@ export class SubwayEngine {
     group.add(star);
 
     this.scene.add(group);
-    this.coins.push({ mesh: group, lane, z, collected: false, initialY: 0.75 });
+    this.coins.push({ mesh: group, lane, z, collected: false, initialY: y });
   }
 
   // Glowing 3D Powerup Items

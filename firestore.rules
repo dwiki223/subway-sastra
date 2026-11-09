@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll(['playerName', 'score', 'distance', 'coins', 'createdAt'])
+        && data.keys().hasOnly(['playerName', 'score', 'distance', 'coins', 'createdAt', 'correctAnswers', 'checkpointsCleared', 'outfit', 'userId'])
+        && data.playerName is string && data.playerName.size() >= 1 && data.playerName.size() <= 32
+        && data.score is number && data.score >= 0 && data.score <= 100000000
+        && data.distance is number && data.distance >= 0 && data.distance <= 1000000
+        && data.coins is number && data.coins >= 0 && data.coins <= 1000000
+        && (!('correctAnswers' in data) || (data.correctAnswers is number && data.correctAnswers >= 0))
+        && (!('checkpointsCleared' in data) || (data.checkpointsCleared is number && data.checkpointsCleared >= 0))
+        && (!('outfit' in data) || (data.outfit is string && data.outfit.size() <= 32))
+        && (!('userId' in data) || (data.userId is string && data.userId.size() <= 128))
+        && data.createdAt == request.time;
+    }
+
+    match /leaderboard/{entryId} {
+      // Publicly readable so all players can view the global leaderboard
+      allow get, list: if true;
+
+      // Allow creating verified leaderboard run records
+      allow create: if isValidId(entryId)
+        && isValidLeaderboardEntry(incoming())
+        && (
+          !('userId' in incoming()) || (isSignedIn() && incoming().userId == request.auth.uid) || (!isSignedIn())
+        );
+
+      // Leaderboard entries are immutable historical records
+      allow update, delete: if false;
+    }
+  }
+}

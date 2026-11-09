@@ -9,6 +9,7 @@ interface GameOverModalProps {
   onOpenSkins: () => void;
   onOpenGuide: () => void;
   onOpenQuestionBank?: () => void;
+  onOpenLeaderboard?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -18,6 +19,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   onOpenSkins,
   onOpenGuide,
   onOpenQuestionBank,
+  onOpenLeaderboard,
 }) => {
   const [showReview, setShowReview] = useState<boolean>(false);
   const accuracy = stats.totalQuestionsAnswered > 0
@@ -179,6 +181,16 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             <RotateCcw className="h-4 w-4" />
             <span>Main Lagi</span>
           </button>
+
+          {onOpenLeaderboard && (
+            <button
+              onClick={onOpenLeaderboard}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3.5 px-4 shadow-md shadow-amber-500/25 transition cursor-pointer text-xs"
+            >
+              <Trophy className="h-4 w-4" />
+              <span>Leaderboard Global</span>
+            </button>
+          )}
 
           {onOpenQuestionBank && (
             <button

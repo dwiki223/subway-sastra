@@ -12,14 +12,17 @@ import { GuideModal } from './components/GuideModal';
 import { GameOverModal } from './components/GameOverModal';
 import { SkinSelectorModal } from './components/SkinSelectorModal';
 import { QuestionBankModal } from './components/QuestionBankModal';
+import { LeaderboardModal } from './components/LeaderboardModal';
 import { QUESTION_BANK, OUTFIT_OPTIONS, shuffleQuestion } from './data/indonesianQuestions';
 import { GameState, PlayerStats, Question, AnswerHistory } from './types/game';
 import { sound } from './utils/audio';
+import { saveScoreToLeaderboard } from './services/firebase';
 
 const STORAGE_KEY_HIGHSCORE = 'subway_sastra_highscore';
 const STORAGE_KEY_COINS = 'subway_sastra_coins';
 const STORAGE_KEY_SKIN = 'subway_sastra_skin';
 const STORAGE_KEY_UNLOCKED_SKINS = 'subway_sastra_unlocked_skins';
+const STORAGE_KEY_PLAYER_NAME = 'subway_sastra_player_name';
 
 export default function App() {
   const canvasMountRef = useRef<HTMLDivElement>(null);
@@ -61,6 +64,10 @@ export default function App() {
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [isSkinsOpen, setIsSkinsOpen] = useState<boolean>(false);
   const [isQuestionBankOpen, setIsQuestionBankOpen] = useState<boolean>(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
+  const [playerName, setPlayerName] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEY_PLAYER_NAME) || 'Pelari SMP';
+  });
   const [speedAlert, setSpeedAlert] = useState<{ stage: number; multiplier: number } | null>(null);
 
   // In-game stats
@@ -332,6 +339,21 @@ export default function App() {
     const updatedCoins = totalCoins + currentCoinsGained;
     setTotalCoins(updatedCoins);
     localStorage.setItem(STORAGE_KEY_COINS, String(updatedCoins));
+
+    // Save run score to global Firestore Leaderboard
+    if (currentScore > 0) {
+      saveScoreToLeaderboard({
+        playerName: playerName || 'Pelari SMP',
+        score: currentScore,
+        distance: statsRef.current.distance,
+        coins: currentCoinsGained,
+        correctAnswers: statsRef.current.correctAnswersCount,
+        checkpointsCleared: statsRef.current.checkpointsCleared,
+        outfit: currentSkin,
+      }).catch((err) => {
+        console.warn('Gagal menyimpan skor ke leaderboard:', err);
+      });
+    }
   };
 
   // Toggle Mute
@@ -398,6 +420,15 @@ export default function App() {
 
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setIsLeaderboardOpen(true)}
+                className="flex items-center gap-2 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3.5 py-2 shadow-md transition cursor-pointer font-bold text-xs"
+              >
+                <Trophy className="h-4 w-4 text-amber-400" />
+                <span className="hidden sm:inline">Papan Peringkat Global</span>
+                <span className="sm:hidden">Peringkat</span>
+              </button>
+
+              <button
                 onClick={handleToggleMute}
                 className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 shadow-md transition cursor-pointer"
                 title={isMuted ? 'Nyalakan Suara' : 'Matikan Suara'}
@@ -417,6 +448,10 @@ export default function App() {
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white drop-shadow-md leading-none">
               SUBWAY <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-sky-400 to-indigo-400">SASTRA 3D</span>
             </h1>
+
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 px-3.5 py-1 text-xs text-slate-300 shadow-sm">
+              <span>Dibuat oleh <strong className="text-amber-400 font-bold">Dwiki Darmawan, S.Pd.</strong></span>
+            </div>
 
             <p className="text-sm sm:text-base text-slate-300 max-w-md font-medium leading-relaxed">
               Berlari di lintasan 3D tanpa henti! Hadapi checkpoint soal seru tentang <strong className="text-amber-300">Pantun</strong>, <strong className="text-purple-300">Syair</strong>, dan <strong className="text-sky-300">Gurindam</strong> agar dapat terus melaju!
@@ -458,8 +493,16 @@ export default function App() {
             </button>
           </div>
 
-          {/* Bottom Dock Menu (Materials, Question Bank, & Skins) */}
-          <div className="flex flex-wrap items-center justify-center gap-3 pb-3">
+          {/* Bottom Dock Menu (Leaderboard, Question Bank, Materials, & Skins) */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 pb-3">
+            <button
+              onClick={() => setIsLeaderboardOpen(true)}
+              className="flex items-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm py-2.5 px-4 shadow-lg shadow-amber-500/25 transition cursor-pointer"
+            >
+              <Trophy className="h-4 w-4" />
+              <span>Leaderboard Global</span>
+            </button>
+
             <button
               onClick={() => setIsQuestionBankOpen(true)}
               className="flex items-center gap-2 rounded-2xl bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm py-2.5 px-4 border border-emerald-400/40 shadow-lg shadow-emerald-600/30 transition cursor-pointer"
@@ -483,6 +526,11 @@ export default function App() {
               <Palette className="h-4 w-4 text-amber-400" />
               <span>Kostum & Koin ({totalCoins})</span>
             </button>
+          </div>
+
+          {/* Creator Attribution */}
+          <div className="pb-1 text-[11px] text-slate-400 font-medium tracking-wide">
+            Dibuat oleh <span className="text-amber-400 font-bold">Dwiki Darmawan, S.Pd.</span>
           </div>
         </div>
       )}
@@ -514,7 +562,7 @@ export default function App() {
       )}
 
       {/* Pause Modal Overlay */}
-      {gameState === 'playing' && isPaused && !isGuideOpen && (
+      {gameState === 'playing' && isPaused && !isGuideOpen && !isLeaderboardOpen && !isQuestionBankOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs">
           <div className="w-full max-w-sm rounded-3xl bg-slate-900 border border-slate-700 p-6 text-center space-y-4 shadow-2xl">
             <h3 className="text-xl font-black text-white">Permainan Dijeda</h3>
@@ -525,6 +573,13 @@ export default function App() {
                 className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 transition cursor-pointer"
               >
                 Lanjutkan
+              </button>
+              <button
+                onClick={() => setIsLeaderboardOpen(true)}
+                className="w-full rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 transition cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20"
+              >
+                <Trophy className="h-4 w-4" />
+                <span>Lihat Leaderboard Global</span>
               </button>
               <button
                 onClick={() => setIsQuestionBankOpen(true)}
@@ -574,8 +629,21 @@ export default function App() {
           onOpenSkins={() => setIsSkinsOpen(true)}
           onOpenGuide={() => setIsGuideOpen(true)}
           onOpenQuestionBank={() => setIsQuestionBankOpen(true)}
+          onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
         />
       )}
+
+      {/* Global Leaderboard Modal (Firestore Real-time) */}
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        currentPlayerName={playerName}
+        onUpdatePlayerName={(name) => {
+          setPlayerName(name);
+          localStorage.setItem(STORAGE_KEY_PLAYER_NAME, name);
+        }}
+        latestScore={stats.score}
+      />
 
       {/* Educational Guide Modal */}
       <GuideModal
