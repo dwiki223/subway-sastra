@@ -31,9 +31,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onJump,
   onSlide,
 }) => {
-  const distanceInCurrentLap = stats.distance % stats.checkpointInterval;
-  const progressPercent = Math.min(100, Math.floor((distanceInCurrentLap / stats.checkpointInterval) * 100));
   const metersLeft = Math.max(0, stats.nextCheckpointAt - stats.distance);
+  const progressPercent = Math.min(100, Math.max(0, Math.floor(((stats.checkpointInterval - metersLeft) / stats.checkpointInterval) * 100)));
 
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 sm:p-5 select-none overflow-hidden">
@@ -73,7 +72,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <div className="pointer-events-auto w-56 sm:w-72 rounded-xl bg-slate-900/85 px-3 py-2 border border-slate-700/60 shadow-md">
             <div className="flex items-center justify-between text-xs mb-1">
               <span className="font-semibold text-sky-300 flex items-center gap-1">
-                <span>Pos Puisi #{stats.checkpointsCleared + 1}</span>
+                <span>Pos Puisi #{stats.totalQuestionsAnswered + 1}</span>
               </span>
               <span className="font-mono text-slate-300 font-bold">
                 {metersLeft} m lagi
@@ -181,7 +180,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
       {speedAlert && (
         <div className="pointer-events-none self-center flex items-center gap-2.5 rounded-2xl bg-amber-500/95 border-2 border-amber-300 text-slate-950 px-5 py-3 shadow-2xl shadow-amber-500/50 animate-bounce font-black text-sm sm:text-base">
           <Zap className="h-6 w-6 fill-slate-950 animate-spin" />
-          <span>KECEPATAN NAIK {speedAlert.multiplier}X LIPAT! (JARAK 1500M TERCAPAI)</span>
+          <span>KECEPATAN NAIK {speedAlert.multiplier}X LIPAT! (JARAK {(speedAlert.stage - 1) * 1000}M TERCAPAI)</span>
           <Zap className="h-6 w-6 fill-slate-950 animate-spin" />
         </div>
       )}

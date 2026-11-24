@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { Question } from '../types/game';
 import { CheckCircle2, XCircle, Clock, Sparkles, BookOpen, ArrowRight } from 'lucide-react';
@@ -24,6 +24,9 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [hasAnswered, setHasAnswered] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(25);
+
+  const onResumeRef = useRef(onResumeGame);
+  onResumeRef.current = onResumeGame;
 
   const isCorrect = selectedOption !== null && selectedOption === question.correctAnswer;
 
@@ -62,14 +65,14 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
       } else {
         if (['Space', 'Enter'].includes(e.code)) {
           e.preventDefault();
-          onResumeGame();
+          onResumeRef.current();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasAnswered, selectedOption]);
+  }, [hasAnswered, selectedOption, question]);
 
   const handleSelect = (idx: number) => {
     if (hasAnswered) return;
@@ -237,7 +240,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
                   <XCircle className="h-4 w-4 text-rose-400" />
                   <span>
                     {selectedOption === -1 ? 'WAKTU HABIS!' : 'KURANG TEPAT!'}
-                    {livesRemaining > 1 ? ` (Tersisa ${livesRemaining - 1} Nyawa)` : ' (Game Over)'}
+                    {livesRemaining > 0 ? ` (Tersisa ${livesRemaining} Nyawa — Soal berlanjut!)` : ' (Game Over)'}
                   </span>
                 </>
               )}
@@ -255,7 +258,7 @@ export const CheckpointModal: React.FC<CheckpointModalProps> = ({
             onClick={onResumeGame}
             className="w-full flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold py-3.5 px-4 shadow-lg shadow-indigo-600/30 transition cursor-pointer"
           >
-            <span>{livesRemaining <= 1 && !isCorrect ? 'Lihat Hasil Akhir' : 'Lanjut Berlari!'}</span>
+            <span>{livesRemaining <= 0 && !isCorrect ? 'Lihat Hasil Akhir' : 'Lanjut Berlari!'}</span>
             <ArrowRight className="h-4 w-4" />
             <kbd className="hidden sm:inline-block ml-2 rounded bg-indigo-800/80 px-2 py-0.5 text-[11px] font-mono text-indigo-200">
               Spasi / Enter

@@ -250,7 +250,7 @@ class SoundEngine {
     osc.stop(now + 0.32);
   }
 
-  // 1500m Speed multiplier 2x sound effect
+  // 1000m Speed multiplier 2x sound effect
   public playSpeedUp() {
     if (this.isMuted) return;
     this.initContext();

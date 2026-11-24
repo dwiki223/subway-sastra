@@ -57,7 +57,7 @@ export default function App() {
 
   // Current Question at checkpoint
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-  const [questionPool, setQuestionPool] = useState<Question[]>([]);
+  const [checkpointSeq, setCheckpointSeq] = useState<number>(0);
   const [answerHistory, setAnswerHistory] = useState<AnswerHistory[]>([]);
 
   // Modals
@@ -91,9 +91,20 @@ export default function App() {
     doublePointsTimeLeft: 0,
   });
 
-  // Track latest stats in ref for callback access
+  // Track latest state in refs for synchronous & closure-safe callback access
   const statsRef = useRef(stats);
   statsRef.current = stats;
+  const questionPoolRef = useRef<Question[]>([]);
+  const lastAnswerCorrectRef = useRef<boolean>(true);
+  const engineCallbacksRef = useRef<{
+    onCheckpointReached: (distance: number) => void;
+    onHitObstacle: () => void;
+    onGameOver: () => void;
+  }>({
+    onCheckpointReached: () => {},
+    onHitObstacle: () => {},
+    onGameOver: () => {},
+  });
 
   // Initialize Three.js Engine once on mount
   useEffect(() => {
@@ -101,7 +112,7 @@ export default function App() {
 
     const engine = new SubwayEngine(canvasMountRef.current, {
       onCheckpointReached: (distance) => {
-        handleReachCheckpoint(distance);
+        engineCallbacksRef.current.onCheckpointReached(distance);
       },
       onCoinCollected: (count) => {
         sound.playCoin();
@@ -117,17 +128,7 @@ export default function App() {
         });
       },
       onHitObstacle: () => {
-        sound.playCrash();
-        setStats((prev) => {
-          if (prev.hasShield) {
-            return { ...prev, hasShield: false };
-          }
-          const nextLives = prev.lives - 1;
-          if (nextLives <= 0) {
-            handleGameOver();
-          }
-          return { ...prev, lives: Math.max(0, nextLives) };
-        });
+        engineCallbacksRef.current.onHitObstacle();
       },
       onDistanceUpdate: (meters) => {
         setStats((prev) => {
@@ -160,7 +161,7 @@ export default function App() {
         setTimeout(() => setSpeedAlert(null), 3800);
       },
       onGameOver: () => {
-        handleGameOver();
+        engineCallbacksRef.current.onGameOver();
       },
     });
 
@@ -212,7 +213,10 @@ export default function App() {
   const handleStartGame = () => {
     // Shuffle questions and randomize their option order
     const shuffled = [...QUESTION_BANK].sort(() => Math.random() - 0.5).map((q) => shuffleQuestion(q));
-    setQuestionPool(shuffled);
+    questionPoolRef.current = shuffled;
+    lastAnswerCorrectRef.current = true;
+    setCurrentQuestion(null);
+    setCheckpointSeq(0);
     setAnswerHistory([]);
 
     const initialStats: PlayerStats = {
@@ -248,25 +252,29 @@ export default function App() {
   };
 
   // Triggered when runner reaches checkpoint gate
-  const handleReachCheckpoint = (distance: number) => {
-    setGameState('checkpoint');
+  const handleReachCheckpoint = (_distance: number) => {
+    if (questionPoolRef.current.length === 0) {
+      questionPoolRef.current = [...QUESTION_BANK].sort(() => Math.random() - 0.5).map((q) => shuffleQuestion(q));
+    }
+    const rawQ = questionPoolRef.current.shift() || QUESTION_BANK[0];
+    const randomizedQ = shuffleQuestion(rawQ);
 
-    // Pick next question from pool and ensure fresh shuffle of options
-    setQuestionPool((prev) => {
-      let nextPool = [...prev];
-      if (nextPool.length === 0) {
-        nextPool = [...QUESTION_BANK].sort(() => Math.random() - 0.5).map((q) => shuffleQuestion(q));
-      }
-      const rawQ = nextPool.shift() || QUESTION_BANK[0];
-      const randomizedQ = shuffleQuestion(rawQ);
-      setCurrentQuestion(randomizedQ);
-      return nextPool;
-    });
+    setCurrentQuestion(randomizedQ);
+    setCheckpointSeq((seq) => seq + 1);
+    setGameState('checkpoint');
   };
 
   // Called when player selects an option in the quiz modal
   const handleAnswerQuestion = (isCorrect: boolean, selectedIdx: number) => {
     if (!currentQuestion) return;
+
+    lastAnswerCorrectRef.current = isCorrect;
+
+    // If answered wrong, keep the question in circulation by re-inserting it a few checkpoints later
+    if (!isCorrect) {
+      const insertIndex = Math.min(questionPoolRef.current.length, 2 + Math.floor(Math.random() * 3));
+      questionPoolRef.current.splice(insertIndex, 0, shuffleQuestion(currentQuestion));
+    }
 
     // Record in history
     setAnswerHistory((prev) => [
@@ -301,22 +309,22 @@ export default function App() {
   // Resume running after question explanation
   const handleResumeAfterCheckpoint = () => {
     const currentLives = statsRef.current.lives;
-    const lastHistory = answerHistory[answerHistory.length - 1];
-    const wasCorrect = lastHistory ? lastHistory.isCorrect : true;
+    const wasCorrect = lastAnswerCorrectRef.current;
 
     if (currentLives <= 0) {
+      setCurrentQuestion(null);
       handleGameOver();
       return;
     }
 
-    setGameState('playing');
     setCurrentQuestion(null);
+    setGameState('playing');
 
     if (engineRef.current) {
-      engineRef.current.onCheckpointAnswered(wasCorrect);
+      const nextCheckpointAt = engineRef.current.onCheckpointAnswered(wasCorrect);
       setStats((prev) => ({
         ...prev,
-        nextCheckpointAt: prev.distance + prev.checkpointInterval,
+        nextCheckpointAt,
       }));
     }
   };
@@ -325,6 +333,10 @@ export default function App() {
   const handleGameOver = () => {
     setGameState('gameover');
     sound.pauseBgm();
+    if (engineRef.current) {
+      engineRef.current.pause();
+      engineRef.current.isRunning = false;
+    }
 
     const currentScore = statsRef.current.score;
     const currentCoinsGained = statsRef.current.coins;
@@ -354,6 +366,24 @@ export default function App() {
         console.warn('Gagal menyimpan skor ke leaderboard:', err);
       });
     }
+  };
+
+  // Keep engine callbacks synced with latest React closures
+  engineCallbacksRef.current = {
+    onCheckpointReached: handleReachCheckpoint,
+    onHitObstacle: () => {
+      sound.playCrash();
+      if (statsRef.current.hasShield) {
+        setStats((prev) => ({ ...prev, hasShield: false }));
+        return;
+      }
+      const nextLives = Math.max(0, statsRef.current.lives - 1);
+      setStats((prev) => ({ ...prev, lives: nextLives }));
+      if (nextLives <= 0) {
+        handleGameOver();
+      }
+    },
+    onGameOver: handleGameOver,
   };
 
   // Toggle Mute
@@ -611,7 +641,8 @@ export default function App() {
       {/* Checkpoint Quiz Modal */}
       {gameState === 'checkpoint' && currentQuestion && (
         <CheckpointModal
-          checkpointIndex={stats.checkpointsCleared + 1}
+          key={checkpointSeq}
+          checkpointIndex={checkpointSeq}
           distance={stats.distance}
           question={currentQuestion}
           livesRemaining={stats.lives}

@@ -828,8 +828,9 @@ export class SubwayEngine {
     clusterOffsets.forEach((offset) => {
       const zPos = zOffset + offset;
 
-      // Safety buffer: keep 18m around the checkpoint gate completely clear of obstacles
-      if (Math.abs(zPos - (-this.nextCheckpointDistance)) < 18) {
+      // Safety buffer: keep 18m around the checkpoint gate completely clear of obstacles (in player-relative Z coordinates)
+      const relativeGateZ = -(this.nextCheckpointDistance - this.distanceRun);
+      if (Math.abs(zPos - relativeGateZ) < 18) {
         // Near checkpoint gate, spawn celebratory coins in center lane
         for (let c = 0; c < 4; c++) {
           this.spawnCoin(1, zPos - 4 + c * 2.5);
@@ -1254,18 +1255,23 @@ export class SubwayEngine {
     this.clock.getDelta();
   }
 
-  public onCheckpointAnswered(correct: boolean) {
+  public onCheckpointAnswered(correct: boolean): number {
+    this.nextCheckpointDistance = this.distanceRun + this.checkpointInterval;
+    if (this.checkpointGateGroup) {
+      this.checkpointGateGroup.position.set(0, 0, -(this.nextCheckpointDistance - this.distanceRun));
+    }
+    this.checkpointGateActive = false;
+    this.clock.getDelta();
+    this.isPaused = false;
+
     if (correct) {
       this.invincibleTimer = 2.5;
-      this.nextCheckpointDistance = this.distanceRun + this.checkpointInterval;
-      this.checkpointGateGroup.position.set(0, 0, -this.nextCheckpointDistance);
-      this.checkpointGateActive = false;
-      this.isPaused = false;
       this.targetSpeed = Math.max(this.speed, this.baseSpeed * this.speedMultiplier) + 1.5;
     } else {
-      this.isPaused = false;
-      this.invincibleTimer = 1.5;
+      this.invincibleTimer = 2.0;
     }
+
+    return Math.floor(this.nextCheckpointDistance);
   }
 
   public giveShield() {
@@ -1333,8 +1339,8 @@ export class SubwayEngine {
   }
 
   private updateGame(delta: number) {
-    // Check 1500-meter speed doubling milestone (tiap 1500 meter kecepatan naik 2x lipat)
-    const currentMilestone = Math.floor(this.distanceRun / 1500);
+    // Check 1000-meter speed doubling milestone (tiap 1000 meter kecepatan naik 2x lipat)
+    const currentMilestone = Math.floor(this.distanceRun / 1000);
     if (currentMilestone > this.lastSpeedMilestone) {
       this.lastSpeedMilestone = currentMilestone;
       this.speedMultiplier = Math.pow(2, currentMilestone);
